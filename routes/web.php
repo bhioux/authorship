@@ -5,6 +5,7 @@ use Illuminate\Http\Request;
 use App\Models\Author;
 use App\Models\Book;
 use App\Http\Controllers\AuthorController;
+use App\Services\ElasticsearchService;
 
 /*
 |--------------------------------------------------------------------------
@@ -18,9 +19,13 @@ use App\Http\Controllers\AuthorController;
 */
 //Route::get('/authors', [AuthorController::class, 'index']);
 
+// Route::get('/', function () {
+//     return view('authors.list');
+// });
 Route::get('/', function () {
-    return view('welcome');
-});
+    $authors = Author::all();
+    return view('authors.index', compact('authors'));
+})->name('authors.list');
 
 /** START AUTHOR ROUTES */
 
@@ -130,5 +135,24 @@ Route::post('/books', function (Request $request) {
     $book->save();
     return redirect('/books')->with('success', 'Book has been updated successfully');
 })->name('books.post');
+
+
+Route::get('/search', function (ElasticsearchService $elasticsearch) {
+    $query = request('query');
+
+    $results = $elasticsearch->getClient()->search([
+        'index' => 'books',
+        'body'  => [
+            'query' => [
+                'multi_match' => [
+                    'query'  => $query,
+                    'fields' => ['title', 'description'],
+                ],
+            ],
+        ],
+    ]);
+
+    return response()->json($results['hits']['hits']);
+});
 
 /** END BOOK ROUTES */
